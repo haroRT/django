@@ -61,3 +61,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
             instance.cover_image = validated_data.get('cover_image', instance.cover_image)
         instance.save()
         return instance
+    
+
+class FileSerializer(serializers.Serializer):
+    file = serializers.FileField(max_length=10*1024*1024) 

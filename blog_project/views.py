@@ -1,9 +1,10 @@
 from rest_framework import status
+from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework_jwt.settings import api_settings
-from .serializers import ProfileSerializer, RegisterSerializer, UpdateProfileSerializer
+from .serializers import FileSerializer, ProfileSerializer, RegisterSerializer, UpdateProfileSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
 from blog.models import Account
@@ -11,6 +12,7 @@ from django.contrib.auth.hashers import check_password
 from rest_framework.permissions import BasePermission
 from rest_framework_jwt.utils import jwt_decode_handler
 from rest_framework.exceptions import AuthenticationFailed
+import os
 
 class CustomJWTPermission(BasePermission):
     def has_permission(self, request, view):
@@ -74,3 +76,29 @@ def updateProfile(request):
         serializer.save()
         return Response(serializer.data)
     return Response(serializer.errors, status=400)
+
+@permission_classes([CustomJWTPermission])
+class FileUploadView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = FileSerializer(data=request.data)
+        if serializer.is_valid():
+            uploaded_file = serializer.validated_data['file']
+            # file_contents = uploaded_file.read()
+            file_name = uploaded_file.name 
+            # file_type = uploaded_file.content_type 
+            
+            public_dir = os.path.join(settings.MEDIA_ROOT, 'public')
+            print(public_dir)
+            if not os.path.exists(public_dir):
+                os.makedirs(public_dir)
+            
+            file_path = os.path.join(public_dir, file_name)
+            with open(file_path, 'wb+') as destination:
+                for chunk in uploaded_file.chunks():
+                    destination.write(chunk)
+
+            relative_file_path = os.path.join('public', file_name)
+
+            return Response({'url': relative_file_path}, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
