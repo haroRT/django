@@ -11,7 +11,7 @@ from blog.models import Account
 from django.contrib.auth.hashers import check_password
 from rest_framework.permissions import BasePermission
 from rest_framework_jwt.utils import jwt_decode_handler
-from rest_framework.exceptions import AuthenticationFailed
+# from rest_framework.exceptions import AuthenticationFailed
 import os
 
 class CustomJWTPermission(BasePermission):
@@ -45,18 +45,21 @@ class CreateUserAPIView(APIView):
     
 class LoginView(APIView):
     def post(self, request):
-         email = request.data['email']
-         password = request.data['password']
-         user = Account.objects.get(email=email)
-         if user is not None and check_password(password,user.password):
-            #  ham cua djangoJWT
-            jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER 
-            token = jwt_encode_handler({"email" :user.email,
-                                        "role":user.role,
-                                        "id":user.id
-                                        })
-            return Response({"token":token}, status=status.HTTP_200_OK)
-         return Response({"error":"Login error"},status=status.HTTP_400_BAD_REQUEST)
+        try:
+            email = request.data['email']
+            password = request.data['password']
+            user = Account.objects.get(email=email)
+            if user is not None and check_password(password,user.password):
+                #  ham cua djangoJWT
+                jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER 
+                token = jwt_encode_handler({"email" :user.email,
+                                            "role":user.role,
+                                            "id":user.id
+                                            })
+                return Response({"token":token}, status=status.HTTP_200_OK)
+            return Response({"error":"Login error"},status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({"error":"Login error"},status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes([CustomJWTPermission])
