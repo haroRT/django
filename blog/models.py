@@ -31,4 +31,13 @@ class Posts(models.Model):
     title = models.CharField(max_length=100, blank=False)
     content =  models.TextField(max_length=1000, blank=False)
     url = models.CharField(max_length=300, blank=True, default='')
-    author = models.ForeignKey(Account, on_delete=models.CASCADE)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE)
+    created = models.DateTimeField(auto_now_add=True)
+
+
+class Comments(models.Model):
+    content =  models.TextField(max_length=1000, blank=False)
+    url = models.CharField(max_length=300, blank=True, default='')
+    account = models.ForeignKey(Account, on_delete=models.CASCADE)
+    post = models.ForeignKey(Posts,on_delete=models.CASCADE)
+    created = models.DateTimeField(auto_now_add=True)

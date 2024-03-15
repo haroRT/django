@@ -16,7 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.conf import settings
 from django.urls import path ,re_path
-from .views import CreateUserAPIView, LoginView ,getProfile, updateProfile,FileUploadView
+from .views import GetPostDetail, PostAPIView, CreateUserAPIView, LoginView ,getProfile, updateProfile,FileUploadView
 
 from django.views.static import serve
 
@@ -31,4 +31,7 @@ urlpatterns = [
     path('api/profile/', getProfile, name='create_user'),
     path('api/update-profile/',updateProfile , name='update_user'),
     path('api/upload/',FileUploadView.as_view() , name='upload'),
+    path('api/post/',PostAPIView.as_view() , name='post'),
+    path('api/post/<int:pk>',PostAPIView.as_view() , name='detail'),
+    path('api/post-detail/<int:pk>',GetPostDetail , name='detail'),
 ]
