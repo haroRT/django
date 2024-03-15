@@ -1,8 +1,8 @@
-from blog.models import Account
+from blog.models import Account, Posts
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.hashers import make_password
-
+from rest_framework.views import exception_handler
 
 class RegisterSerializer(serializers.ModelSerializer):  # create class to serializer model
     email = serializers.EmailField(
@@ -65,3 +65,33 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
 
 class FileSerializer(serializers.Serializer):
     file = serializers.FileField(max_length=10*1024*1024) 
+
+
+class PostSerializer(serializers.ModelSerializer):
+    account =RegisterSerializer(read_only =True)
+    url =serializers.CharField(required=False,max_length=100)
+    title =serializers.CharField(required=False,max_length=100)
+    content =serializers.CharField(required=False,max_length=1000)
+    class Meta:
+        model =Posts
+        fields =("id","title","content","url","account")
+
+    def validate(self, attrs):
+        if self.instance  is None:
+            if attrs.get("content") is None and  attrs.get("url") is None :
+                raise serializers.ValidationError("content and url cannot null post is not empty")
+            return attrs
+        else :
+            return attrs
+    
+    def create(self, validated_data):
+        user = self.context['user']
+        account = Account.objects.get(id=user['id'])
+        if account is None:
+            raise("Cannot find account")
+        post = Posts.objects.create(account=account,**validated_data)
+        return post
+    
+    # def update(self, instance, validated_data):
+    #     instance =instance(**validated_data)
+    #     return instance.save()

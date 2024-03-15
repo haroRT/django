@@ -4,10 +4,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework_jwt.settings import api_settings
-from .serializers import FileSerializer, ProfileSerializer, RegisterSerializer, UpdateProfileSerializer
+from .serializers import PostSerializer, FileSerializer, ProfileSerializer, RegisterSerializer, UpdateProfileSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
-from blog.models import Account
+from blog.models import Account ,Posts
 from django.contrib.auth.hashers import check_password
 from rest_framework.permissions import BasePermission
 from rest_framework_jwt.utils import jwt_decode_handler
@@ -16,9 +16,9 @@ import os
 
 class CustomJWTPermission(BasePermission):
     def has_permission(self, request, view):
-        auth_header = request.META['HTTP_AUTHORIZATION']
-        token = auth_header.split(' ')[1] if auth_header.startswith('Bearer') else None
         try:
+            auth_header = request.META['HTTP_AUTHORIZATION']
+            token = auth_header.split(' ')[1] if auth_header.startswith('Bearer') else None
             decoded_jwt = jwt_decode_handler(token)
         except:
             return False
@@ -72,13 +72,17 @@ def getProfile(request):
 @api_view(['PUT'])
 @permission_classes([CustomJWTPermission])
 def updateProfile(request):
-    user = request.user 
-    account = Account.objects.get(pk=user['id'])
-    serializer = UpdateProfileSerializer(account,data =request.data ,partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=400)
+    try:
+        user = request.user 
+        account = Account.objects.get(pk=user['id'])
+        serializer = UpdateProfileSerializer(account,data =request.data ,partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+    except:
+        return Response({"error":"Update error"}, status=400)
+
 
 @permission_classes([CustomJWTPermission])
 class FileUploadView(APIView):
@@ -105,3 +109,56 @@ class FileUploadView(APIView):
             return Response({'url': relative_file_path}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+
+@permission_classes([CustomJWTPermission])
+class PostAPIView(APIView):
+
+    def post(self, request):
+        serializer = PostSerializer(data=request.data,context={'user' :request.user})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def patch(self, request, pk):
+        try:
+            print(request.user['id'])
+            post =Posts.objects.get(pk=pk,account_id=request.user['id'])
+        except Posts.DoesNotExist:
+            return Response({"error":"Update error"},status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = PostSerializer(post, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        try:
+            post =Posts.objects.get(pk=pk,account_id= request.user['id'])        
+            post.delete()
+            return Response({"success":"Delete post successfully"},status=status.HTTP_204_NO_CONTENT)
+        except Posts.DoesNotExist:
+            return Response({"error":"Delete error"},status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+def GetPostDetail(request,pk):
+    try:
+        print(pk)
+        post =Posts.objects.get(pk=pk)
+        serializer=PostSerializer(post)
+        return Response({"success":"get post successfully","post":serializer.data},status=status.HTTP_204_NO_CONTENT)
+    except Posts.DoesNotExist:
+        return Response({"error":"Get post error"},status=status.HTTP_404_NOT_FOUND)
+    
+
+@api_view(['GET'])
+def GetAllPost(request):
+    try:
+        post =Posts.objects.all()
+        serializer=PostSerializer(post,many=True)
+        return Response({"success":"get post successfully","post":serializer.data},status=status.HTTP_204_NO_CONTENT)
+    except Posts.DoesNotExist:
+        return Response({"error":"Get post error"},status=status.HTTP_404_NOT_FOUND)
