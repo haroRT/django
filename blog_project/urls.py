@@ -16,7 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.conf import settings
 from django.urls import path ,re_path
-from .views import GetAllPost, GetPostDetail, PostAPIView, CreateUserAPIView, LoginView ,getProfile, updateProfile,FileUploadView
+from .views import CommentAPIView, GetAllPost, GetPostDetail, PostAPIView, CreateUserAPIView, LoginView ,getProfile, updateProfile,FileUploadView
 
 from django.views.static import serve
 
@@ -35,4 +35,8 @@ urlpatterns = [
     path('api/post/<int:pk>',PostAPIView.as_view() , name='detail'),
     path('api/post-detail/<int:pk>',GetPostDetail , name='detail'),
     path('api/all-post',GetAllPost , name='All'),
+
+    path('api/comment/',CommentAPIView.as_view() , name='comment'),
+    path('api/comment/<int:pk>',CommentAPIView.as_view() , name='detail'),
+
 ]

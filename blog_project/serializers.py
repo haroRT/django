@@ -1,9 +1,9 @@
-from blog.models import Account, Posts
+from blog.models import Account, Comments, Posts
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.hashers import make_password
 from rest_framework.views import exception_handler
-
+from rest_framework.exceptions import ValidationError
 class RegisterSerializer(serializers.ModelSerializer):  # create class to serializer model
     email = serializers.EmailField(
         required=True,
@@ -91,7 +91,33 @@ class PostSerializer(serializers.ModelSerializer):
             raise("Cannot find account")
         post = Posts.objects.create(account=account,**validated_data)
         return post
+
+class CommentSerializer(serializers.ModelSerializer):
+    account =RegisterSerializer(read_only =True)
+    url =serializers.CharField(required=False,max_length=100)
+    content =serializers.CharField(required=False,max_length=1000)
+    created =serializers.DateTimeField(read_only=True)
+    post_id = serializers.IntegerField(required=True)
+    class Meta:
+        model =Comments
+        fields =("id","content","url","account","created","post_id")
+
+    def validate(self, attrs):
+        if self.instance  is None:
+            if attrs.get("content") is None and  attrs.get("url") is None :
+                raise serializers.ValidationError("Content and url cannot null")
+            return attrs
+        else :
+            return attrs
     
-    # def update(self, instance, validated_data):
-    #     instance =instance(**validated_data)
-    #     return instance.save()
+    def create(self, validated_data):
+        try:
+            post = Posts.objects.get(pk=validated_data.get('post_id'))
+        except Posts.DoesNotExist:
+            raise ValidationError("Cannot find post")
+        user = self.context['user']
+        account = Account.objects.filter(id=user['id']).first()
+        if account is None:
+            raise ValidationError("Cannot find account")
+        comment = Comments.objects.create(account=account,**validated_data)
+        return comment

@@ -4,15 +4,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework_jwt.settings import api_settings
-from .serializers import PostSerializer, FileSerializer, ProfileSerializer, RegisterSerializer, UpdateProfileSerializer
+from .serializers import CommentSerializer, PostSerializer, FileSerializer, ProfileSerializer, RegisterSerializer, UpdateProfileSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
-from blog.models import Account ,Posts
+from blog.models import Account ,Posts ,Comments
 from django.contrib.auth.hashers import check_password
 from rest_framework.permissions import BasePermission
 from rest_framework_jwt.utils import jwt_decode_handler
-# from rest_framework.exceptions import AuthenticationFailed
+from django.http import JsonResponse
 import os
+from django.db.models import Case, When, Value, IntegerField ,Prefetch ,Count
 
 class CustomJWTPermission(BasePermission):
     def has_permission(self, request, view):
@@ -123,7 +124,6 @@ class PostAPIView(APIView):
     
     def patch(self, request, pk):
         try:
-            print(request.user['id'])
             post =Posts.objects.get(pk=pk,account_id=request.user['id'])
         except Posts.DoesNotExist:
             return Response({"error":"Update error"},status=status.HTTP_404_NOT_FOUND)
@@ -157,8 +157,50 @@ def GetPostDetail(request,pk):
 @api_view(['GET'])
 def GetAllPost(request):
     try:
-        post =Posts.objects.all()
-        serializer=PostSerializer(post,many=True)
-        return Response({"success":"get post successfully","post":serializer.data},status=status.HTTP_204_NO_CONTENT)
-    except Posts.DoesNotExist:
-        return Response({"error":"Get post error"},status=status.HTTP_404_NOT_FOUND)
+        auth_header = request.META['HTTP_AUTHORIZATION']
+        token = auth_header.split(' ')[1] if auth_header.startswith('Bearer') else None
+        decoded_jwt = jwt_decode_handler(token)
+        user_id = decoded_jwt['id']
+        post =Posts.objects.annotate(num_comments=Count('comments')).annotate(isOwner=Case(
+            When(account__id =user_id , then=Value(1)),default =Value(0),output_field=IntegerField()
+        ))
+
+        post_data = list(post.values('id', 'title', 'content', 'url','isOwner','account__fullname','account__avatar','num_comments','created'))
+        return Response({"success":"get post successfully","post":post_data},status=status.HTTP_200_OK)
+    except:
+        post =Posts.objects.annotate(num_comments=Count('comments')).annotate(isOwner=Case(
+            When(account__id =None , then=Value(1)),default =Value(0),output_field=IntegerField()
+        ))
+        post_data = list(post.values('id', 'title', 'content', 'url','isOwner','account__fullname','account__avatar','num_comments','created'))
+        return Response({"success":"get post successfully 2","post":post_data},status=status.HTTP_200_OK)
+    
+
+@permission_classes([CustomJWTPermission])
+class CommentAPIView(APIView):
+
+    def post(self, request):
+        serializer = CommentSerializer(data=request.data,context={'user' :request.user})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def patch(self, request, pk):
+        try:
+            comment = Comments.objects.get(pk=pk,account_id=request.user['id'])
+        except Comments.DoesNotExist:
+            return Response({"error":"Update error"},status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = CommentSerializer(comment, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        try:
+            comment =Comments.objects.get(pk=pk,account_id= request.user['id'])        
+            comment.delete()
+            return Response({"success":"Delete comment successfully"},status=status.HTTP_204_NO_CONTENT)
+        except Comments.DoesNotExist:
+            return Response({"error":"Delete error"},status=status.HTTP_404_NOT_FOUND)
